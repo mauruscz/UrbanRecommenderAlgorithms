@@ -1,3 +1,19 @@
+# Hyper-parameters
+DATASET_NAME = 'foursquare_complete'
+MODEL_NAME = "STAMP"
+device_id = '3'
+epochs = 1
+early_stopping = 10
+embedding_size = 16
+min_items_occurrences, min_users_interactions = 5, 5
+topk_evalgrid = [5, 10, 25, 50, 100]
+
+import os
+
+os.environ["MKL_NUM_THREADS"] = "4"
+os.environ["NUMEXPR_NUM_THREADS"] = "4"
+os.environ["OMP_NUM_THREADS"] = "4"
+os.environ["CUDA_VISIBLE_DEVICES"] = device_id
 import pathlib
 import pickle
 import numpy as np
@@ -6,19 +22,10 @@ import pandas as pd
 from logging import getLogger
 from recbole.config import Config
 from recbole.data import create_dataset, data_preparation
-from recbole.model.sequential_recommender import GRU4Rec, LightSANs, STAMP
+from recbole.model.sequential_recommender import GRU4Rec, LightSANs, STAMP, FPMC
 from recbole.trainer import Trainer
 from recbole.utils import init_seed, init_logger, ModelType
 from recbole.utils.case_study import full_sort_topk
-
-DATASET_NAME = 'foursquare'
-MODEL_NAME = "STAMP"
-device_id = '3'
-epochs = 100
-early_stopping = 5
-embedding_size = 32
-min_items_occurrences, min_users_interactions = 1, 5
-topk_evalgrid = [5, 10, 25, 50, 100]
 
 base_dir = pathlib.Path.cwd().parent
 output_data_dir = base_dir / 'data' / 'output' / DATASET_NAME / MODEL_NAME
@@ -34,7 +41,7 @@ params_dict = {'gpu_id': device_id,
                'TIME_FIELD': 'timestamp',
                'user_inter_num_interval': f"[{min_users_interactions},inf)",
                'item_inter_num_interval': f"[{min_items_occurrences},inf)",
-               'MAX_ITEM_LIST_LENGTH': 1000,
+               'MAX_ITEM_LIST_LENGTH': 1500,
                'load_col': {'inter': ['user_id', 'item_id', 'timestamp']},
                'neg_sampling': None,
                'train_neg_sample_args': None,
@@ -80,6 +87,8 @@ elif MODEL_NAME == 'LightSANs':
     model = LightSANs(config, train_data.dataset).to(config['device'])
 elif MODEL_NAME == 'STAMP':
     model = STAMP(config, train_data.dataset).to(config['device'])
+elif MODEL_NAME == 'FPMC':
+    model = FPMC(config, train_data.dataset).to(config['device'])
 else:
     raise Exception(f'{MODEL_NAME} is not supported.')
 logger.info(model)
@@ -150,24 +159,27 @@ for topk in topk_evalgrid:
     for internal_user_id in internal_user_ids:
         external_user_id = dataset.id2token('user_id', internal_user_id)
         # Get explorer index for this user
-        ei_val = explorer_index_df[explorer_index_df['user_id:token'] == int(external_user_id)]['explorer_index:float'].item()
+        ei_val = explorer_index_df[explorer_index_df['user_id:token'] == int(external_user_id)][
+            'explorer_index:float'].item()
         explorer_index_vec[user_mapping_dict[internal_user_id]] = ei_val
 
     first_quartile_val = np.percentile(explorer_index_vec, 25)
     first_quartile_users = np.where(explorer_index_vec <= first_quartile_val)[0]
     second_quartile_val = np.percentile(explorer_index_vec, 50)
-    second_quartile_users = np.where((explorer_index_vec > first_quartile_val) & (explorer_index_vec <= second_quartile_val))[0]
+    second_quartile_users = \
+    np.where((explorer_index_vec > first_quartile_val) & (explorer_index_vec <= second_quartile_val))[0]
     third_quartile_val = np.percentile(explorer_index_vec, 75)
-    third_quartile_users = np.where((explorer_index_vec > second_quartile_val) & (explorer_index_vec <= third_quartile_val))[0]
+    third_quartile_users = \
+    np.where((explorer_index_vec > second_quartile_val) & (explorer_index_vec <= third_quartile_val))[0]
     fourth_quartile_users = np.where(explorer_index_vec > third_quartile_val)[0]
     avg_hitrate_by_ei = [hitrate_by_users[first_quartile_users].mean(),
-                          hitrate_by_users[second_quartile_users].mean(),
-                          hitrate_by_users[third_quartile_users].mean(),
-                          hitrate_by_users[fourth_quartile_users].mean()]
+                         hitrate_by_users[second_quartile_users].mean(),
+                         hitrate_by_users[third_quartile_users].mean(),
+                         hitrate_by_users[fourth_quartile_users].mean()]
     std_hitrate_by_ei = [hitrate_by_users[first_quartile_users].std(),
-                          hitrate_by_users[second_quartile_users].std(),
-                          hitrate_by_users[third_quartile_users].std(),
-                          hitrate_by_users[fourth_quartile_users].std()]
+                         hitrate_by_users[second_quartile_users].std(),
+                         hitrate_by_users[third_quartile_users].std(),
+                         hitrate_by_users[fourth_quartile_users].std()]
     # Save results
     with open(output_data_dir / f'hitrate_by_itempop{topk}.pkl', 'wb') as file:
         pickle.dump({'avg': avg_hitrate_by_pop, 'std': std_hitrate_by_pop}, file)
@@ -178,7 +190,7 @@ for topk in topk_evalgrid:
     with open(output_data_dir / f'hitrate{topk}.pkl', 'wb') as file:
         pickle.dump({'avg': np.nanmean(norm_hitrate_by_items), 'std': np.nanstd(norm_hitrate_by_items)}, file)
     print(f'--- TEST METRICS k={topk} ---')
-    print(f'HitRate@{topk}: {round(np.nanmean(norm_hitrate_by_items),4)}')
+    print(f'HitRate@{topk}: {round(np.nanmean(norm_hitrate_by_items), 4)}')
     print(f'Coverage@{topk}: {round(coverage, 4)}')
     print(f'HitRateByPop@{topk}: {[round(elem, 2) for elem in avg_hitrate_by_pop]}')
     print(f'HitRateByEI@{topk}: {[round(elem, 2) for elem in avg_hitrate_by_ei]}')

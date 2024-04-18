@@ -2,11 +2,14 @@ import pandas as pd
 import pathlib
 from tqdm import tqdm
 
-DATASET_NAME = 'foursquare'
+DATASET_NAME = 'foursquare_complete'
 userColName = 'uid'
-poiColName = 'poi'
-metadataColNames = ['category', 'lat', 'lon']
-metadataColTypes = ['token_seq', 'float', 'float']
+poiColName = 'venue_id'
+# metadataColNames = ['category', 'lat', 'lon']
+# metadataColTypes = ['token_seq', 'float', 'float']
+metadataColNames = ['lat', 'lon']
+metadataColTypes = ['float', 'float']
+
 
 base_dir = pathlib.Path.cwd().parent
 data_dir = base_dir / 'data' / 'raw'
@@ -15,7 +18,7 @@ processed_dataset_dir = processed_dir / DATASET_NAME
 output_dir = base_dir / 'data' / 'output'
 dataset_path = data_dir / f'{DATASET_NAME}.csv'
 
-df = pd.read_csv(dataset_path, index_col=0)
+df = pd.read_csv(dataset_path, index_col=None if 'full' in DATASET_NAME or 'complete' in DATASET_NAME else 0)
 
 
 # First part: interaction file generation
