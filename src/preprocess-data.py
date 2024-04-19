@@ -32,15 +32,15 @@ for user_id in tqdm(df[userColName].unique(), desc='uid'):
     if user_id in user_remapping:
         new_user_id = user_remapping[user_id]
     else:
-        new_user_id = cnt_uid
-        user_remapping[user_id] = cnt_uid
+        new_user_id = f'{cnt_uid}U'
+        user_remapping[user_id] = f'{cnt_uid}U'
         cnt_uid += 1
     for poi_id in df[df[userColName] == user_id][poiColName]:
         if poi_id in poi_remapping:
             new_poi_id = poi_remapping[poi_id]
         else:
-            new_poi_id = cnt_poi
-            poi_remapping[poi_id] = cnt_poi
+            new_poi_id = f'{cnt_poi}I'
+            poi_remapping[poi_id] = f'{cnt_poi}I'
             cnt_poi += 1
         user_id_list.append(new_user_id)
         poi_id_list.append(new_poi_id)

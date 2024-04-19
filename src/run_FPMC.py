@@ -1,6 +1,6 @@
 # Hyper-parameters
 DATASET_NAME = 'foursquare_complete'
-MODEL_NAME = "STAMP"
+MODEL_NAME = "FPMC"
 device_id = '3'
 epochs = 100
 early_stopping = 5
@@ -45,8 +45,8 @@ params_dict = {'gpu_id': device_id,
                'item_inter_num_interval': f"[{min_items_occurrences},inf)",
                'MAX_ITEM_LIST_LENGTH': 1500,
                'load_col': {'inter': ['user_id', 'item_id', 'timestamp']},
-               'neg_sampling': None,
-               'train_neg_sample_args': None,
+               'loss_type': 'BPR',
+               'train_neg_sample_args': {'distribution': 'uniform', 'sample_num': 1},
                'epochs': epochs,
                'stopping_step': early_stopping,
                'embedding_size': embedding_size,
@@ -55,8 +55,8 @@ params_dict = {'gpu_id': device_id,
                    'group_by': 'user',
                    'order': 'TO',
                    'mode': 'pop100',
-                   'metrics': ['Recall', 'MRR', 'NDCG', 'Hit', 'Precision', 'ItemCoverage', 'AveragePopularity'],
-                   'topk': [1, 5, 10],
+                   'metrics': ['Recall', 'MRR', 'NDCG', 'Hit'],
+                   'topk': [10],
                    'valid_metric': 'Hit@10',
                    'repeatable': True,
                    'eval_batch_size': 4096
@@ -105,13 +105,13 @@ best_valid_score, best_valid_result = trainer.fit(train_data, valid_data)
 
 # model evaluation
 test_result = trainer.evaluate(test_data)
-# print(test_result)
+print(test_result)
 
 # Compute popularity of each item
-item_pop = np.full(fill_value=0, shape=(dataset.item_num-1, ))
+item_pop = np.full(fill_value=0, shape=(dataset.item_num - 1,))
 item_id_list = list(dataset.item_counter.keys())
 for item_id in tqdm(item_id_list, 'get item pop'):
-    item_pop[item_id-1] = dataset.item_counter[item_id]
+    item_pop[item_id - 1] = dataset.item_counter[item_id]
 
 print('Start Evaluation...')
 # Get predictions on the test set
@@ -121,21 +121,23 @@ for topk in tqdm(topk_evalgrid, 'topk eval'):
     user_metadata_rnd_entropy = pd.read_csv(base_dir / 'data' / 'output' / f'{DATASET_NAME}_random_entropy.csv',
                                             sep=',')
     user_metadata_rnd_entropy['uid'] = user_metadata_rnd_entropy['uid'].apply(lambda x: f'{x - 1}U')
-    user_metadata_uncorrelated_entropy = pd.read_csv(base_dir / 'data' / 'output' / f'{DATASET_NAME}_uncorrelated_entropy.csv', sep=',')
+    user_metadata_uncorrelated_entropy = pd.read_csv(
+        base_dir / 'data' / 'output' / f'{DATASET_NAME}_uncorrelated_entropy.csv', sep=',')
     user_metadata_uncorrelated_entropy['uid'] = user_metadata_uncorrelated_entropy['uid'].apply(lambda x: f'{x - 1}U')
     user_hit_list = []
     # Bias towards items
-    hitrate_by_items, occurrences_by_items = np.zeros(dataset.item_num-1), np.zeros(dataset.item_num-1)
+    hitrate_by_items, occurrences_by_items = np.zeros(dataset.item_num - 1), np.zeros(dataset.item_num - 1)
     all_predicted_items = []
     for userid in tqdm(user_metadata['user_id:token'], 'users'):
         trainer.model.eval()
         ground_truth_item = utils.get_last_item(dataset, userid)
-        rec_list = utils.predict_for_all_item(userid, dataset, trainer.model, config, test_data, topk).indices.detach().cpu().numpy()[0]
+        rec_list = utils.predict_for_all_item_fpmc(userid, dataset, trainer.model, config, test_data,
+                                                   topk).indices.detach().cpu().numpy()[0]
         # User Bias
         user_hit_list.append(ground_truth_item in rec_list)
         # Item Bias
-        hitrate_by_items[ground_truth_item-1] += ground_truth_item in rec_list
-        occurrences_by_items[ground_truth_item-1] += 1
+        hitrate_by_items[ground_truth_item - 1] += ground_truth_item in rec_list
+        occurrences_by_items[ground_truth_item - 1] += 1
         all_predicted_items += rec_list[0]
         all_predicted_items = list(set(all_predicted_items))
     # User Bias
@@ -146,9 +148,10 @@ for topk in tqdm(topk_evalgrid, 'topk eval'):
     user_metadata_rnd_entropy.to_csv(output_data_dir / f'hit@{topk}_by_rnd_entropy.csv', sep=',')
     user_metadata_uncorrelated_entropy.to_csv(output_data_dir / f'hit@{topk}_by_uncorrelated_entropy.csv', sep=',')
     # Item Bias
-    coverage = len(set(all_predicted_items)) / (dataset.item_num-1)
+    coverage = len(set(all_predicted_items)) / (dataset.item_num - 1)
     hitrate_by_items = hitrate_by_items / occurrences_by_items
-    pd.DataFrame(data={'HitRate': hitrate_by_items, 'ItemPop': item_pop}).to_csv(output_data_dir / f'hit@{topk}_by_itempop.csv', sep=',')
+    pd.DataFrame(data={'HitRate': hitrate_by_items, 'ItemPop': item_pop}).to_csv(
+        output_data_dir / f'hit@{topk}_by_itempop.csv', sep=',')
     with open(output_data_dir / f'coverage@{topk}.pkl', 'wb') as file:
         pickle.dump(coverage, file)
     print(f'--- TEST METRICS k={topk} ---')
