@@ -43,12 +43,13 @@ for topk in topk_evalgrid:
                        rotation=25)
     ax.set_ylabel(f'HitRate@{topk}', fontsize=26)
     ax.set_xlabel('Explorer Index', fontsize=26)
+    ax.set_ylim(0.0, 1.025)
     ax.tick_params(axis='both', which='major', labelsize=18)
     fig.tight_layout()
     fig.savefig(output_data_dir / f'barplot_EI@{topk}.png', dpi=500)
     fig.savefig(output_data_dir / f'barplot_EI@{topk}.pdf')
 
-    # Analysis with respect to Predictability
+    # Analysis with respect to Predictability (rnd)
     stats_colname = 'random_entropy'
     first_quartile_th = np.percentile(user_metadata_rnd_entropy[stats_colname], 25)
     second_quartile_th = np.percentile(user_metadata_rnd_entropy[stats_colname], 50)
@@ -71,11 +72,42 @@ for topk in topk_evalgrid:
     ax.set_xticklabels([r'$1^{st}$ quartile', r'$2^{nd}$ quartile', r'$3^{rd}$ quartile', r'$4^{th}$ quartile'],
                        rotation=25)
     ax.set_ylabel(f'HitRate@{topk}', fontsize=26)
-    ax.set_xlabel('Uncorrelated Entropy Index', fontsize=26)
+    ax.set_xlabel('Random Entropy Index', fontsize=26)
+    ax.set_ylim(0.0, 1.025)
     ax.tick_params(axis='both', which='major', labelsize=18)
     fig.tight_layout()
-    fig.savefig(output_data_dir / f'barplot_PI@{topk}.png', dpi=500)
-    fig.savefig(output_data_dir / f'barplot_PI@{topk}.pdf')
+    fig.savefig(output_data_dir / f'barplot_rnd_PI@{topk}.png', dpi=500)
+    fig.savefig(output_data_dir / f'barplot_rnd_PI@{topk}.pdf')
+
+    # Analysis with respect to Predictability (uncorrelated)
+    stats_colname = 'uncorrelated_entropy'
+    first_quartile_th = np.percentile(user_metadata_uncorrelated_entropy[stats_colname], 25)
+    second_quartile_th = np.percentile(user_metadata_uncorrelated_entropy[stats_colname], 50)
+    third_quartile_th = np.percentile(user_metadata_uncorrelated_entropy[stats_colname], 75)
+
+    group_list = []
+    for index_val in user_metadata_uncorrelated_entropy[stats_colname]:
+        if index_val <= first_quartile_th:
+            group_list.append('0')
+        elif index_val > first_quartile_th and index_val <= second_quartile_th:
+            group_list.append('1')
+        elif index_val > second_quartile_th and index_val <= third_quartile_th:
+            group_list.append('2')
+        else:
+            group_list.append('3')
+    user_metadata_uncorrelated_entropy['user_group'] = group_list
+    fig, ax = plt.subplots()
+    user_metadata_uncorrelated_entropy['hit'] = user_metadata_uncorrelated_entropy['hit'].astype(float)
+    sns.barplot(x='user_group', y='hit', data=user_metadata_uncorrelated_entropy, ax=ax, order=['0', '1', '2', '3'])
+    ax.set_xticklabels([r'$1^{st}$ quartile', r'$2^{nd}$ quartile', r'$3^{rd}$ quartile', r'$4^{th}$ quartile'],
+                       rotation=25)
+    ax.set_ylabel(f'HitRate@{topk}', fontsize=26)
+    ax.set_xlabel('Uncorrelated Entropy Index', fontsize=26)
+    ax.set_ylim(0.0, 1.025)
+    ax.tick_params(axis='both', which='major', labelsize=18)
+    fig.tight_layout()
+    fig.savefig(output_data_dir / f'barplot_uncorrelated_PI@{topk}.png', dpi=500)
+    fig.savefig(output_data_dir / f'barplot_uncorrelated_PI@{topk}.pdf')
 
     # Analysis with respect to Item Popularity
     stats_colname = 'ItemPop'
@@ -102,6 +134,7 @@ for topk in topk_evalgrid:
                        rotation=25)
     ax.set_ylabel(f'HitRate@{topk}', fontsize=26)
     ax.set_xlabel('Item Popularity', fontsize=26)
+    ax.set_ylim(0.0, 1.025)
     ax.tick_params(axis='both', which='major', labelsize=18)
     fig.tight_layout()
     fig.savefig(output_data_dir / f'barplot_ItemPop@{topk}.png', dpi=500)

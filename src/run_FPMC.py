@@ -157,3 +157,10 @@ for topk in tqdm(topk_evalgrid, 'topk eval'):
     print(f'--- TEST METRICS k={topk} ---')
     print(f'HitRate@{topk}: {round(np.nanmean(hitrate_by_items), 4)}')
     print(f'Coverage@{topk}: {round(coverage, 4)}')
+
+# for topk in topk_evalgrid:
+#     user_metadata_uncorrelated_entropy = pd.read_csv(base_dir / 'data' / 'output' / f'{DATASET_NAME}_uncorrelated_entropy.csv', sep=',')
+#     stats_uncorrelated_entropy = pd.read_csv(output_data_dir / f'hit@{topk}_by_uncorrelated_entropy.csv',  sep=',', index_col=0)
+#     del stats_uncorrelated_entropy['explorer_index:float']
+#     stats_uncorrelated_entropy['uncorrelated_entropy'] = user_metadata_uncorrelated_entropy['uncorrelated_entropy'].values
+#     stats_uncorrelated_entropy.to_csv(output_data_dir / f'hit@{topk}_by_uncorrelated_entropy.csv', sep=',')

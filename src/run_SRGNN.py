@@ -1,6 +1,6 @@
 # Hyper-parameters
 DATASET_NAME = 'foursquare_complete'
-MODEL_NAME = "Caser"
+MODEL_NAME = "SRGNN"
 device_id = '3'
 epochs = 100
 early_stopping = 5
@@ -22,7 +22,7 @@ import pandas as pd
 from logging import getLogger
 from recbole.config import Config
 from recbole.data import create_dataset, data_preparation
-from recbole.model.sequential_recommender import Caser
+from recbole.model.sequential_recommender import SRGNN
 from recbole.trainer import Trainer
 from recbole.utils import init_seed, init_logger, ModelType
 from tqdm import tqdm
@@ -43,17 +43,14 @@ params_dict = {'gpu_id': device_id,
                'TIME_FIELD': 'timestamp',
                'user_inter_num_interval': f"[{min_users_interactions},inf)",
                'item_inter_num_interval': f"[{min_items_occurrences},inf)",
-               'MAX_ITEM_LIST_LENGTH': 50,
+               'MAX_ITEM_LIST_LENGTH': 1500,
                'load_col': {'inter': ['user_id', 'item_id', 'timestamp']},
                'loss_type': 'BPR',
                'train_neg_sample_args': {'distribution': 'uniform', 'sample_num': 1},
                'epochs': epochs,
                'stopping_step': early_stopping,
                'embedding_size': embedding_size,
-               'n_v': 4,
-               'n_h': 8,
-               'reg_weight': 1e-4,
-               'dropout_prob': 0.4,
+               'step': 1,
                'eval_args': {
                    'split': {'LS': 'valid_and_test'},
                    'group_by': 'user',
@@ -88,7 +85,7 @@ print('Dataset preparation...')
 train_data, valid_data, test_data = data_preparation(config, dataset)
 
 # model loading and initialization
-model = Caser(config, train_data.dataset).to(config['device'])
+model = SRGNN(config, train_data.dataset).to(config['device'])
 
 logger.info(model)
 
